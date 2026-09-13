@@ -7,7 +7,8 @@ import numpy as np
 
 from device import resolve_device
 from dataset.postgres_plan_dataset import (
-    PostgresPlanDataSet, scale_node_times, template_family,
+    PostgresPlanDataSet, query_family, scale_node_times, template_family,
+    training_family,
 )
 from model_arch import QPPNet
 
@@ -92,6 +93,16 @@ class DeviceTest(unittest.TestCase):
         self.assertEqual(dataset.datasize, 8)
         self.assertLess(max(np.abs(group["feat_vec"]).max()
                             for group in dataset.test_dataset), 100)
+        self.assertTrue(training_family("query000", 2027))
+        self.assertFalse(training_family("query003", 2027))
+        self.assertEqual(
+            query_family({"key": "a", "sql": "SELECT * FROM t WHERE x=1"}),
+            query_family({"key": "b", "sql": "select * from t where x = 7"}),
+        )
+        self.assertNotEqual(
+            query_family({"key": "a", "sql": "SELECT * FROM t WHERE x=1"}),
+            query_family({"key": "b", "sql": "SELECT * FROM u WHERE x=1"}),
+        )
 
 
 if __name__ == "__main__":

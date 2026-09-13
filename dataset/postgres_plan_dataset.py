@@ -2,8 +2,8 @@
 
 from collections import defaultdict
 import json
-import random
 import re
+import zlib
 
 import numpy as np
 
@@ -22,6 +22,24 @@ def template_family(key):
     name = key.split(":", 1)[-1]
     name = re.sub(r"#\d+$", "", name)
     return re.sub(r"_s\d+$", "", name)
+
+
+def query_family(record):
+    sql = record.get("sql")
+    if not sql:
+        return template_family(record["key"])
+    sql = re.sub(r"'(?:''|[^'])*'", "?", sql)
+    sql = re.sub(
+        r"(?<![A-Za-z_])[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?",
+        "?", sql,
+    )
+    sql = re.sub(r"\s*([(),=<>+*/-])\s*", r"\1", sql)
+    return " ".join(sql.lower().split())
+
+
+def training_family(family, split_seed):
+    value = zlib.crc32(f"{split_seed}\0{family}".encode())
+    return value < int(0.8 * (1 << 32))
 
 
 def load_records(path):
@@ -61,15 +79,16 @@ class PostgresPlanDataSet:
         records = load_records(opt.data_dir)
         if not records:
             raise ValueError("no PostgreSQL plans found")
-        families = sorted({template_family(record["key"]) for record in records})
-        random.Random(getattr(opt, "split_seed", 2027)).shuffle(families)
-        split = max(1, int(len(families) * 0.8))
-        train_families = set(families[:split])
+        families = {query_family(record) for record in records}
+        split_seed = getattr(opt, "split_seed", 2027)
+        train_families = {
+            family for family in families if training_family(family, split_seed)
+        }
         self.train_records = [record for record in records
-                              if template_family(record["key"]) in train_families]
+                              if query_family(record) in train_families]
         self.test_records = [record for record in records
-                             if template_family(record["key"]) not in train_families]
-        if not self.test_records:
+                             if query_family(record) not in train_families]
+        if not self.train_records or not self.test_records:
             raise ValueError("at least two template families are required")
 
         self.batch_size = opt.batch_size

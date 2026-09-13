@@ -1,10 +1,12 @@
 import unittest
 from types import SimpleNamespace
 import tempfile
+import json
 
 import numpy as np
 
 from device import resolve_device
+from dataset.postgres_plan_dataset import PostgresPlanDataSet, template_family
 from model_arch import QPPNet
 
 
@@ -46,6 +48,33 @@ class DeviceTest(unittest.TestCase):
             ))
         self.assertEqual(model.dim_dict, dimensions)
         self.assertEqual(model.units["Custom Scan"].dense_block[0].in_features, 5)
+
+    def test_postgres_plans_split_whole_template_families(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl") as output:
+            output.write(json.dumps({"kind": "header"}) + "\n")
+            for family in range(5):
+                for sample in range(2):
+                    output.write(json.dumps({"kind": "plan", "record": {
+                        "key": f"dsb:query{family:03d}_s{sample}",
+                        "label_duration_ms": 100 + family,
+                        "plan": {"Plan": {
+                            "Node Type": "Seq Scan", "Plan Width": 8,
+                            "Plan Rows": 10, "Startup Cost": 0,
+                            "Total Cost": 1, "Actual Total Time": 1,
+                            "Relation Name": "store_sales",
+                        }},
+                    }}) + "\n")
+            output.flush()
+            dataset = PostgresPlanDataSet(SimpleNamespace(
+                data_dir=output.name, batch_size=2, split_seed=2027,
+            ))
+        train = {template_family(record["key"])
+                 for record in dataset.train_records}
+        test = {template_family(record["key"])
+                for record in dataset.test_records}
+        self.assertFalse(train & test)
+        self.assertEqual(len(train | test), 5)
+        self.assertEqual(dataset.datasize, 8)
 
 
 if __name__ == "__main__":

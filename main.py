@@ -3,6 +3,7 @@ from model_arch import QPPNet
 from dataset.terrier_tpch_dataset.terrier_utils import TerrierTPCHDataSet
 from dataset.postgres_tpch_dataset.tpch_utils import PSQLTPCHDataSet
 from dataset.oltp_dataset.oltp_utils import OLTPDataSet
+from dataset.postgres_plan_dataset import PostgresPlanDataSet
 import argparse
 
 
@@ -15,7 +16,10 @@ parser.add_argument('--data_dir', type=str, default='./res_by_temp/',
                     help='Dir containing train data')
 
 parser.add_argument('--dataset', type=str, default='PSQLTPCH',
-                    help='Select dataset [PSQLTPCH | TerrierTPCH | OLTP]')
+                    help='Select dataset [PostgresPlan | PSQLTPCH | TerrierTPCH | OLTP]')
+
+parser.add_argument('--split_seed', type=int, default=2027,
+                    help='Template-family train/test split seed')
 
 parser.add_argument('--test_time', action='store_true',
                     help='if in testing mode')
@@ -77,7 +81,10 @@ def save_opt(opt, logf):
 if __name__ == '__main__':
     opt = parser.parse_args()
 
-    if opt.dataset == "PSQLTPCH":
+    if opt.dataset == "PostgresPlan":
+        dataset = PostgresPlanDataSet(opt)
+        opt.dim_dict = dataset.dim_dict
+    elif opt.dataset == "PSQLTPCH":
         dataset = PSQLTPCHDataSet(opt)
     elif opt.dataset == "TerrierTPCH":
         dataset = TerrierTPCHDataSet(opt)

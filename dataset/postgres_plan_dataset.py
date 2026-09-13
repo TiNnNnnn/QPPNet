@@ -94,7 +94,9 @@ class PostgresPlanDataSet:
         self.mean_range_dict = {
             operator: (
                 np.mean(values, axis=0),
-                np.maximum(np.std(values, axis=0), np.finfo(np.float32).eps),
+                # A feature constant in train may vary in a held-out template.
+                # Unit scale avoids dividing that valid value by float epsilon.
+                np.maximum(np.std(values, axis=0), 1.0),
             )
             for operator, values in raw.items()
         }
@@ -123,6 +125,7 @@ class PostgresPlanDataSet:
         for record in records:
             root = dict(record["plan"]["Plan"])
             root["__Label Duration"] = record["label_duration_ms"]
+            root["__Query Key"] = record["key"]
             groups[plan_shape(root)].append(root)
         return [self.get_input(group) for group in groups.values()]
 
@@ -145,6 +148,8 @@ class PostgresPlanDataSet:
                 node.get("__Label Duration", node["Actual Total Time"]) / 100
                 for node in nodes
             ], dtype=np.float32),
+            "query_keys": [node["__Query Key"] for node in nodes
+                           if "__Query Key" in node],
             "is_subplan": "Subplan Name" in nodes[0],
         }
 

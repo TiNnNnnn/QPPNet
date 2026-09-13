@@ -1,4 +1,4 @@
-import time, torch
+import json, time, torch
 from model_arch import QPPNet
 from dataset.terrier_tpch_dataset.terrier_utils import TerrierTPCHDataSet
 from dataset.postgres_tpch_dataset.tpch_utils import PSQLTPCHDataSet
@@ -59,6 +59,19 @@ parser.add_argument('-epoch_freq', '--save_latest_epoch_freq', type=int, default
 parser.add_argument('-logf', '--logfile', type=str, default='train_loss.txt')
 
 parser.add_argument('--mean_range_dict', type=str)
+parser.add_argument('--predictions', type=str,
+                    help='Write held-out PostgreSQL predictions as JSONL')
+
+
+def write_predictions(path, model):
+    with open(path, 'w', encoding='utf-8') as output:
+        for key, actual, predicted in zip(
+                model.last_query_keys, model.last_truths,
+                model.last_predictions):
+            output.write(json.dumps({
+                'key': key, 'actual_ms': float(actual),
+                'predicted_ms': float(predicted),
+            }) + '\n')
 
 def save_opt(opt, logf):
     """Print and save options
@@ -98,7 +111,7 @@ if __name__ == '__main__':
     total_iter = 0
 
     if opt.test_time:
-        qpp.evaluate(dataset.all_dataset)
+        qpp.evaluate(dataset.test_dataset if opt.predictions else dataset.all_dataset)
         print('total_loss: {}; test_loss: {}; pred_err: {}; R(q): {}' \
               .format(qpp.last_total_loss, qpp.last_test_loss,
                       qpp.last_pred_err, qpp.last_rq))
@@ -144,3 +157,8 @@ if __name__ == '__main__':
                 qpp.save_units(epoch + 1)
 
         logf.close()
+
+    if opt.predictions and not opt.test_time:
+        qpp.evaluate(dataset.test_dataset)
+    if opt.predictions:
+        write_predictions(opt.predictions, qpp)

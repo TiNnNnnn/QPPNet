@@ -174,7 +174,6 @@ class QPPNet():
                 input_vec.size()[0], expected_len - input_vec.size()[1],
                 device=self.device
             )
-            print(samp_batch['real_node_type'], input_vec.shape, expected_len)
             input_vec = torch.cat((input_vec, add_on), axis=1)
 
         # print(samp_batch['node_type'], input_vec)
@@ -218,7 +217,7 @@ class QPPNet():
             test_loss = []
             pred_err = []
 
-        all_tt, all_pred_time = None, None
+        truth_batches, prediction_batches, query_keys = [], [], []
 
         data_size = 0
         total_mean_mae = torch.zeros(1).to(self.device)
@@ -253,9 +252,9 @@ class QPPNet():
                     print("pred_time", pred_time)
                     print("total_time", tt)
 
-                all_tt = tt if all_tt is None else torch.cat([tt, all_tt])
-                all_pred_time = pred_time if all_pred_time is None \
-                                else torch.cat([pred_time, all_pred_time])
+                truth_batches.append(tt)
+                prediction_batches.append(pred_time)
+                query_keys.extend(samp_dict.get('query_keys', []))
 
                 # if idx in self._test_losses and self._test_losses[idx] == curr_rq:
                 #     print(f"^^^^^^^^^^^^^^^^^^{samp_dict['node_type']} ^^^^^^^^^^^^^^^\n",
@@ -300,6 +299,8 @@ class QPPNet():
 
 
         if self.test:
+            all_tt = torch.cat(truth_batches)
+            all_pred_time = torch.cat(prediction_batches)
             all_test_loss = torch.cat(test_loss)
             #print(test_loss[0].shape, test_loss[1].shape, all_test_loss.shape)
             all_test_loss = torch.mean(all_test_loss)
@@ -312,6 +313,9 @@ class QPPNet():
             self.accumulate_err = Metric.accumulate_err(all_tt, all_pred_time,
                                                         epsilon)
             self.weighted_mae = total_mean_mae / data_size
+            self.last_query_keys = query_keys
+            self.last_truths = (all_tt * 100).detach().cpu().numpy()
+            self.last_predictions = (all_pred_time * 100).detach().cpu().numpy()
 
             if epoch % 50 == 0:
                 print("test batch Pred Err: {}, R(q): {}, Accumulated Error: "\

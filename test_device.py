@@ -37,6 +37,7 @@ class DeviceTest(unittest.TestCase):
             self.assertEqual(prediction.device.type, model.device.type)
             model.evaluate([sample])
             self.assertGreaterEqual(model.last_pred_err, 0)
+            self.assertEqual(model.last_truths.tolist(), [100.0])
 
     def test_operator_dimensions_can_come_from_a_workload(self):
         with tempfile.TemporaryDirectory() as save_dir:
@@ -61,7 +62,7 @@ class DeviceTest(unittest.TestCase):
                             "Node Type": "Seq Scan", "Plan Width": 8,
                             "Plan Rows": 10, "Startup Cost": 0,
                             "Total Cost": 1, "Actual Total Time": 1,
-                            "Relation Name": "store_sales",
+                            "Relation Name": f"table_{family}",
                         }},
                     }}) + "\n")
             output.flush()
@@ -75,6 +76,8 @@ class DeviceTest(unittest.TestCase):
         self.assertFalse(train & test)
         self.assertEqual(len(train | test), 5)
         self.assertEqual(dataset.datasize, 8)
+        self.assertLess(max(np.abs(group["feat_vec"]).max()
+                            for group in dataset.test_dataset), 100)
 
 
 if __name__ == "__main__":

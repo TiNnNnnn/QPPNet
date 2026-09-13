@@ -6,11 +6,25 @@ import json
 import numpy as np
 
 from device import resolve_device
-from dataset.postgres_plan_dataset import PostgresPlanDataSet, template_family
+from dataset.postgres_plan_dataset import (
+    PostgresPlanDataSet, scale_node_times, template_family,
+)
 from model_arch import QPPNet
 
 
 class DeviceTest(unittest.TestCase):
+    def test_cached_runtime_rescales_actual_node_labels(self):
+        plan = scale_node_times({
+            "Node Type": "Hash Join", "Actual Total Time": 4,
+            "Plans": [{"Node Type": "Seq Scan", "Actual Total Time": 2}],
+        }, 3)
+        self.assertEqual(plan["Actual Total Time"] * plan["__Time Scale"], 12)
+        self.assertEqual(
+            plan["Plans"][0]["Actual Total Time"] *
+            plan["Plans"][0]["__Time Scale"],
+            6,
+        )
+
     def test_explicit_cpu(self):
         self.assertEqual(resolve_device("cpu").type, "cpu")
 

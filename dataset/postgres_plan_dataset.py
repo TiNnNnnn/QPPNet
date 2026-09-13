@@ -45,6 +45,15 @@ def plan_shape(node):
             tuple(plan_shape(child) for child in node.get("Plans", [])))
 
 
+def scale_node_times(node, scale):
+    result = dict(node)
+    result["__Time Scale"] = scale
+    if "Plans" in node:
+        result["Plans"] = [scale_node_times(child, scale)
+                           for child in node["Plans"]]
+    return result
+
+
 class PostgresPlanDataSet:
     """QPPNet batches native PostgreSQL plans, split by template family."""
 
@@ -123,7 +132,12 @@ class PostgresPlanDataSet:
     def _group(self, records):
         groups = defaultdict(list)
         for record in records:
-            root = dict(record["plan"]["Plan"])
+            execution_ms = float(record["plan"].get(
+                "Execution Time", record["label_duration_ms"]
+            ))
+            scale = (float(record["label_duration_ms"]) / execution_ms
+                     if execution_ms > 0 else 1.0)
+            root = scale_node_times(record["plan"]["Plan"], scale)
             root["__Label Duration"] = record["label_duration_ms"]
             root["__Query Key"] = record["key"]
             groups[plan_shape(root)].append(root)
@@ -145,7 +159,8 @@ class PostgresPlanDataSet:
             ], dtype=np.float32),
             "children_plan": children,
             "total_time": np.asarray([
-                node.get("__Label Duration", node["Actual Total Time"]) / 100
+                (node["__Label Duration"] if "__Label Duration" in node else
+                 node["Actual Total Time"] * node["__Time Scale"]) / 100
                 for node in nodes
             ], dtype=np.float32),
             "query_keys": [node["__Query Key"] for node in nodes

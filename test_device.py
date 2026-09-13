@@ -36,6 +36,17 @@ class DeviceTest(unittest.TestCase):
             model.evaluate([sample])
             self.assertGreaterEqual(model.last_pred_err, 0)
 
+    def test_operator_dimensions_can_come_from_a_workload(self):
+        with tempfile.TemporaryDirectory() as save_dir:
+            dimensions = {"Custom Scan": 5}
+            model = QPPNet(SimpleNamespace(
+                device="cpu", save_dir=save_dir, test_time=False,
+                batch_size=1, dataset="Postgres", dim_dict=dimensions,
+                SGD=False, lr=1e-3, scheduler=False, start_epoch=0,
+            ))
+        self.assertEqual(model.dim_dict, dimensions)
+        self.assertEqual(model.units["Custom Scan"].dense_block[0].in_features, 5)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -87,7 +87,9 @@ class QPPNet():
         self.batch_size = opt.batch_size
         self.dataset = opt.dataset
 
-        if opt.dataset == "PSQLTPCH":
+        if getattr(opt, "dim_dict", None) is not None:
+            self.dim_dict = opt.dim_dict
+        elif opt.dataset == "PSQLTPCH":
             self.dim_dict = tpch_dim_dict
         elif opt.dataset == "TerrierTPCH":
             self.dim_dict = terrier_dim_dict

@@ -10,6 +10,7 @@ import numpy as np
 import json
 
 from metric import Metric
+from device import resolve_device
 
 basic = 3
 
@@ -79,8 +80,7 @@ class NeuralUnit(nn.Module):
 
 class QPPNet():
     def __init__(self, opt):
-        self.device = torch.device('cuda:0') if torch.cuda.is_available() \
-                                             else torch.device('cpu:0')
+        self.device = resolve_device(opt.device)
         self.save_dir = opt.save_dir
         self.test = False
         self.test_time = opt.test_time
@@ -161,18 +161,27 @@ class QPPNet():
                 input_vec = torch.cat((input_vec, child_output_vec),axis=1)
                 # first dim is subbatch_size
             else:
-                subplans_time.append(torch.index_select(child_output_vec, 1, torch.zeros(1, dtype=torch.long)))
+                subplans_time.append(torch.index_select(
+                    child_output_vec, 1,
+                    torch.zeros(1, dtype=torch.long, device=self.device)
+                ))
 
         expected_len = self.dim_dict[samp_batch['node_type']]
         if expected_len > input_vec.size()[1]:
-            add_on = torch.zeros(input_vec.size()[0], expected_len - input_vec.size()[1])
+            add_on = torch.zeros(
+                input_vec.size()[0], expected_len - input_vec.size()[1],
+                device=self.device
+            )
             print(samp_batch['real_node_type'], input_vec.shape, expected_len)
             input_vec = torch.cat((input_vec, add_on), axis=1)
 
         # print(samp_batch['node_type'], input_vec)
         output_vec = self.units[samp_batch['node_type']](input_vec)
         # print(output_vec.shape)
-        pred_time = torch.index_select(output_vec, 1, torch.zeros(1, dtype=torch.long))
+        pred_time = torch.index_select(
+            output_vec, 1,
+            torch.zeros(1, dtype=torch.long, device=self.device)
+        )
         # pred_time assumed to be the first col
 
         cat_res = torch.cat([pred_time] + subplans_time, axis=1)
@@ -193,12 +202,8 @@ class QPPNet():
             assert(not (torch.isnan(output_vec).any()))
         except:
             print("feat_vec", feat_vec, "input_vec", input_vec)
-            if torch.cuda.is_available():
-                print(samp_batch['node_type'], "output_vec: ", output_vec,
-                      self.units[samp_batch['node_type']].module.cpu().state_dict())
-            else:
-                print(samp_batch['node_type'], "output_vec: ", output_vec,
-                      self.units[samp_batch['node_type']].cpu().state_dict())
+            print(samp_batch['node_type'], "output_vec: ", output_vec,
+                  self.units[samp_batch['node_type']].state_dict())
             exit(-1)
         return output_vec, pred_time
 
@@ -240,8 +245,8 @@ class QPPNet():
                 # if idx == 6 or \
 
                 # print(samp_dict['feat_vec'])
-                if np.isnan(curr_pred_err.detach()).any() or \
-                   np.isinf(curr_pred_err.detach()).any():
+                if torch.isnan(curr_pred_err).any().item() or \
+                   torch.isinf(curr_pred_err).any().item():
                     print("feat_vec", samp_dict['feat_vec'])
                     print("pred_time", pred_time)
                     print("total_time", tt)
@@ -368,11 +373,10 @@ class QPPNet():
             save_filename = '%s_net_%s.pth' % (epoch, name)
             save_path = os.path.join(self.save_dir, save_filename)
 
-            if torch.cuda.is_available():
-                torch.save(unit.module.cpu().state_dict(), save_path)
-                unit.to(self.device)
-            else:
-                torch.save(unit.cpu().state_dict(), save_path)
+            torch.save(
+                {key: value.detach().cpu() for key, value in unit.state_dict().items()},
+                save_path
+            )
 
     def load(self, epoch):
         for name in self.units:
@@ -381,4 +385,6 @@ class QPPNet():
             if not os.path.exists(save_path):
                 raise ValueError("model {} doesn't exist".format(save_path))
 
-            self.units[name].load_state_dict(torch.load(save_path))
+            self.units[name].load_state_dict(
+                torch.load(save_path, map_location=self.device)
+            )

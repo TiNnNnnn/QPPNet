@@ -20,6 +20,9 @@ parser.add_argument('--dataset', type=str, default='PSQLTPCH',
 parser.add_argument('--test_time', action='store_true',
                     help='if in testing mode')
 
+parser.add_argument('--device', default='auto',
+                    help='PyTorch device [auto | cpu | mps | cuda]')
+
 parser.add_argument('-dir', '--save_dir', type=str, default='./saved_model',
                     help='Dir to save model weights (default: ./saved_model)')
 

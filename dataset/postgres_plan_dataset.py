@@ -196,7 +196,7 @@ class PostgresPlanDataSet:
             "children_plan": children,
             "total_time": np.asarray([
                 (node["__Label Duration"] if "__Label Duration" in node else
-                 node["Actual Total Time"] * node["__Time Scale"]) / 100
+                 node.get("Actual Total Time", 0.0) * node["__Time Scale"]) / 100
                 for node in nodes
             ], dtype=np.float32),
             "query_keys": [node["__Query Key"] for node in nodes

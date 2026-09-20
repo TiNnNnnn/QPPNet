@@ -276,14 +276,6 @@ class QPPNet():
                 curr_mean_mae = Metric.mean_mae(tt, pred_time, epsilon)
                 total_mean_mae += curr_mean_mae * len(tt)
 
-                if epoch % 50 == 0:
-                    print("####### eval by temp: idx {}, test_loss {}, pred_err {}, "\
-                      "rq {}, weighted mae {}, accumulate_err {} "\
-                      .format(idx, torch.mean(torch.abs(tt - pred_time)).item(),
-                              torch.mean(curr_pred_err).item(),
-                              curr_rq, curr_mean_mae,
-                              Metric.accumulate_err(tt, pred_time, epsilon)))
-
             D_size = 0
             subbatch_loss = torch.zeros(1).to(self.device)
             for operator in self.acc_loss:
@@ -339,7 +331,7 @@ class QPPNet():
         self.total_loss.backward()
         self.total_loss = None
 
-    def optimize_parameters(self, epoch):
+    def optimize_parameters(self, epoch, evaluate=True):
         """Calculate losses, gradients, and update network weights; called in every training iteration"""
         self.test = False
         self._forward(epoch)
@@ -353,6 +345,9 @@ class QPPNet():
             self.optimizers[operator].step()
             if len(self.schedulers) > 0:
                 self.schedulers[operator].step()
+
+        if not evaluate:
+            return
 
         self.input = self.test_dataset
         self.test = True

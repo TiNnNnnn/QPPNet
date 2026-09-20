@@ -120,7 +120,7 @@ class DeviceTest(unittest.TestCase):
                 data_dir=output.name, batch_size=1, split_mode="role",
             ))
         self.assertEqual(
-            [record["key"] for record in dataset.train_records], ["q1"]
+            [record["key"] for record in dataset.train_records], ["q1", "q2"]
         )
         self.assertEqual(
             [record["key"] for record in dataset.test_records], ["q3"]

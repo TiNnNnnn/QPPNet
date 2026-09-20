@@ -67,13 +67,18 @@ parser.add_argument('--load_epoch', type=str,
                     help='Load a saved epoch (for example, best) before evaluation')
 
 
-def write_predictions(path, model):
+def write_predictions(path, model, dataset):
+    slices = {
+        str(record['key']): record.get('evaluation_slice', 'holdout')
+        for record in getattr(dataset, 'test_records', ())
+    }
     with open(path, 'w', encoding='utf-8') as output:
         for key, actual, predicted in zip(
                 model.last_query_keys, model.last_truths,
                 model.last_predictions):
             output.write(json.dumps({
                 'key': key, 'actual_ms': float(actual),
+                'evaluation_slice': slices.get(key, 'holdout'),
                 'predicted_ms': float(predicted),
             }) + '\n')
 
@@ -125,7 +130,7 @@ if __name__ == '__main__':
         logf = open(opt.logfile, 'w+')
         save_opt(opt, logf)
         #qpp.test_dataset = dataset.create_test_data(opt)
-        qpp.test_dataset = dataset.test_dataset
+        qpp.test_dataset = dataset.validation_dataset
 
         for epoch in range(opt.start_epoch, opt.end_epoch):
             epoch_start_time = time.time()  # timer for entire epoch
@@ -136,7 +141,10 @@ if __name__ == '__main__':
             total_iter += opt.batch_size
 
             qpp.set_input(samp_dicts)
-            qpp.optimize_parameters(epoch)
+            qpp.optimize_parameters(
+                epoch,
+                evaluate=(epoch % 50 == 0 or epoch + 1 == opt.end_epoch),
+            )
             logf.write("epoch: " + str(epoch) + "; iter_num: " + str(total_iter) \
                       + '; total_loss: {}; test_loss: {}; pred_err: {}; R(q): {}' \
                       .format(qpp.last_total_loss, qpp.last_test_loss,
@@ -168,4 +176,4 @@ if __name__ == '__main__':
         qpp.load('best')
         qpp.evaluate(dataset.test_dataset)
     if opt.predictions:
-        write_predictions(opt.predictions, qpp)
+        write_predictions(opt.predictions, qpp, dataset)

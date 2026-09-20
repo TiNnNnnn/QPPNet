@@ -87,9 +87,6 @@ class PostgresPlanDataSet:
             self.test_records = [
                 record for record in records if record.get("role") == "holdout"
             ]
-            self.train_records = self.train_records[
-                :(len(self.train_records) + len(self.test_records)) // 2
-            ]
         elif split_mode == "family":
             families = {query_family(record) for record in records}
             split_seed = getattr(opt, "split_seed", 2027)
@@ -152,6 +149,11 @@ class PostgresPlanDataSet:
 
         self.dataset = self.train_records
         self.datasize = len(self.dataset)
+        validation_records = [
+            record for record in self.test_records
+            if record.get("evaluation_slice") == "seen"
+        ] or self.test_records
+        self.validation_dataset = self._group(validation_records)
         self.test_dataset = self._group(self.test_records)
         self.all_dataset = self._group(records)
 

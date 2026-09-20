@@ -1,4 +1,4 @@
-import json, time, torch
+import json, time, torch, numpy as np
 from model_arch import QPPNet
 from dataset.terrier_tpch_dataset.terrier_utils import TerrierTPCHDataSet
 from dataset.postgres_tpch_dataset.tpch_utils import PSQLTPCHDataSet
@@ -93,6 +93,8 @@ def save_opt(opt, logf):
 
 if __name__ == '__main__':
     opt = parser.parse_args()
+    np.random.seed(opt.split_seed)
+    torch.manual_seed(opt.split_seed)
 
     if opt.dataset == "PostgresPlan":
         dataset = PostgresPlanDataSet(opt)

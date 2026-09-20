@@ -79,17 +79,34 @@ class PostgresPlanDataSet:
         records = load_records(opt.data_dir)
         if not records:
             raise ValueError("no PostgreSQL plans found")
-        families = {query_family(record) for record in records}
-        split_seed = getattr(opt, "split_seed", 2027)
-        train_families = {
-            family for family in families if training_family(family, split_seed)
-        }
-        self.train_records = [record for record in records
-                              if query_family(record) in train_families]
-        self.test_records = [record for record in records
-                             if query_family(record) not in train_families]
+        split_mode = getattr(opt, "split_mode", "family")
+        if split_mode == "role":
+            self.train_records = [
+                record for record in records if record.get("role") == "history"
+            ]
+            self.test_records = [
+                record for record in records if record.get("role") == "holdout"
+            ]
+            self.train_records = self.train_records[
+                :(len(self.train_records) + len(self.test_records)) // 2
+            ]
+        elif split_mode == "family":
+            families = {query_family(record) for record in records}
+            split_seed = getattr(opt, "split_seed", 2027)
+            train_families = {
+                family for family in families
+                if training_family(family, split_seed)
+            }
+            self.train_records = [record for record in records
+                                  if query_family(record) in train_families]
+            self.test_records = [record for record in records
+                                 if query_family(record) not in train_families]
+        else:
+            raise ValueError(f"unknown split mode: {split_mode}")
         if not self.train_records or not self.test_records:
-            raise ValueError("at least two template families are required")
+            raise ValueError(
+                "both train/history and test/holdout records are required"
+            )
 
         self.batch_size = opt.batch_size
         self.categories = {

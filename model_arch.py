@@ -134,7 +134,9 @@ class QPPNet():
         self.total_loss = None
         self._test_losses = dict()
 
-        if opt.start_epoch > 0 or opt.test_time:
+        if getattr(opt, "load_epoch", None):
+            self.load(opt.load_epoch)
+        elif opt.start_epoch > 0 or opt.test_time:
             self.load(opt.start_epoch)
 
     def set_input(self, samp_dicts):

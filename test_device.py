@@ -104,6 +104,28 @@ class DeviceTest(unittest.TestCase):
             query_family({"key": "b", "sql": "SELECT * FROM u WHERE x=1"}),
         )
 
+    def test_role_split_reuses_retroslow_history_and_holdout(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl") as output:
+            for key, role in (
+                ("q1", "history"), ("q2", "history"), ("q3", "holdout")
+            ):
+                output.write(json.dumps({"kind": "plan", "record": {
+                    "key": key, "role": role, "label_duration_ms": 1,
+                    "plan": {"Plan": {
+                        "Node Type": "Result", "Actual Total Time": 1,
+                    }},
+                }}) + "\n")
+            output.flush()
+            dataset = PostgresPlanDataSet(SimpleNamespace(
+                data_dir=output.name, batch_size=1, split_mode="role",
+            ))
+        self.assertEqual(
+            [record["key"] for record in dataset.train_records], ["q1"]
+        )
+        self.assertEqual(
+            [record["key"] for record in dataset.test_records], ["q3"]
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

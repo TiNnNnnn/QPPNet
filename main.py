@@ -20,6 +20,8 @@ parser.add_argument('--dataset', type=str, default='PSQLTPCH',
 
 parser.add_argument('--split_seed', type=int, default=2027,
                     help='Template-family train/test split seed')
+parser.add_argument('--split_mode', choices=('family', 'role'), default='family',
+                    help='Split by template family or cached history/holdout role')
 
 parser.add_argument('--test_time', action='store_true',
                     help='if in testing mode')
@@ -61,6 +63,8 @@ parser.add_argument('-logf', '--logfile', type=str, default='train_loss.txt')
 parser.add_argument('--mean_range_dict', type=str)
 parser.add_argument('--predictions', type=str,
                     help='Write held-out PostgreSQL predictions as JSONL')
+parser.add_argument('--load_epoch', type=str,
+                    help='Load a saved epoch (for example, best) before evaluation')
 
 
 def write_predictions(path, model):
@@ -161,6 +165,7 @@ if __name__ == '__main__':
         logf.close()
 
     if opt.predictions and not opt.test_time:
+        qpp.load('best')
         qpp.evaluate(dataset.test_dataset)
     if opt.predictions:
         write_predictions(opt.predictions, qpp)

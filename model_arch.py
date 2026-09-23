@@ -325,9 +325,6 @@ class QPPNet():
 
     def backward(self):
         self.last_total_loss = self.total_loss.item()
-        if self.best > self.total_loss.item():
-            self.best = self.total_loss.item()
-            self.save_units('best')
         self.total_loss.backward()
         self.total_loss = None
 
@@ -355,6 +352,9 @@ class QPPNet():
         self.last_test_loss = self.test_loss.item()
         self.last_pred_err = self.pred_err.item()
         self.last_rq = self.rq
+        if self.best > self.last_test_loss:
+            self.best = self.last_test_loss
+            self.save_units('best')
         self.test_loss, self.pred_err = None, None
         self.rq = 0
 

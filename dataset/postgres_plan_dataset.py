@@ -105,6 +105,19 @@ class PostgresPlanDataSet:
                 "both train/history and test/holdout records are required"
             )
 
+        random = np.random.default_rng(getattr(opt, "split_seed", 2027))
+        order = random.permutation(len(self.train_records))
+        validation_count = max(1, len(order) // 5) if len(order) > 1 else 0
+        validation_indices = set(order[:validation_count])
+        validation_records = [
+            record for index, record in enumerate(self.train_records)
+            if index in validation_indices
+        ]
+        self.train_records = [
+            record for index, record in enumerate(self.train_records)
+            if index not in validation_indices
+        ]
+
         self.batch_size = opt.batch_size
         self.categories = {
             field: {value: number for number, value in enumerate(sorted({
@@ -149,10 +162,6 @@ class PostgresPlanDataSet:
 
         self.dataset = self.train_records
         self.datasize = len(self.dataset)
-        validation_records = [
-            record for record in self.test_records
-            if record.get("evaluation_slice") == "seen"
-        ] or self.test_records
         self.validation_dataset = self._group(validation_records)
         self.test_dataset = self._group(self.test_records)
         self.all_dataset = self._group(records)

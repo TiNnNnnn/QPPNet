@@ -90,7 +90,7 @@ class DeviceTest(unittest.TestCase):
                 for record in dataset.test_records}
         self.assertFalse(train & test)
         self.assertEqual(len(train | test), 5)
-        self.assertEqual(dataset.datasize, 8)
+        self.assertEqual(dataset.datasize, 7)
         self.assertLess(max(np.abs(group["feat_vec"]).max()
                             for group in dataset.test_dataset), 100)
         self.assertTrue(training_family("query000", 2027))
@@ -119,11 +119,15 @@ class DeviceTest(unittest.TestCase):
             dataset = PostgresPlanDataSet(SimpleNamespace(
                 data_dir=output.name, batch_size=1, split_mode="role",
             ))
-        self.assertEqual(
-            [record["key"] for record in dataset.train_records], ["q1", "q2"]
-        )
+        self.assertEqual(len(dataset.train_records), 1)
         self.assertEqual(
             [record["key"] for record in dataset.test_records], ["q3"]
+        )
+        self.assertEqual(
+            [key for group in dataset.validation_dataset
+             for key in group["query_keys"]],
+            [key for key in ("q1", "q2")
+             if key not in {record["key"] for record in dataset.train_records}],
         )
 
 

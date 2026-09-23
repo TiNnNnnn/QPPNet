@@ -72,6 +72,10 @@ def write_predictions(path, model, dataset):
         str(record['key']): record.get('evaluation_slice', 'holdout')
         for record in getattr(dataset, 'test_records', ())
     }
+    censored = {
+        str(record['key']): bool(record.get('censored', False))
+        for record in getattr(dataset, 'test_records', ())
+    }
     with open(path, 'w', encoding='utf-8') as output:
         for key, actual, predicted in zip(
                 model.last_query_keys, model.last_truths,
@@ -80,6 +84,7 @@ def write_predictions(path, model, dataset):
                 'key': key, 'actual_ms': float(actual),
                 'evaluation_slice': slices.get(key, 'holdout'),
                 'predicted_ms': float(predicted),
+                'censored': censored.get(key, False),
             }) + '\n')
 
 def save_opt(opt, logf):
